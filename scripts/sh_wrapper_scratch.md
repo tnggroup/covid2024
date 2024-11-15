@@ -5,6 +5,8 @@
 
 srun -p cpu --time 4:00:00 --ntasks 1 --cpus-per-task 6 --mem 32G --pty /bin/bash
 export OMP_NUM_THREADS=6 # Revise the threads - from SBayesRC wiki
+module add plink2
+module add plink
 
 ```
 
@@ -106,7 +108,7 @@ sbatch --time 2-00:00:00 --partition cpu --job-name="wget" --ntasks 1 --cpus-per
 ##Run PRS.R
 
 ```sh
-sbatch --time 2-00:00:00 --partition cpu --job-name="PRS" --ntasks 1 --cpus-per-task 6 --mem 16G --wrap="Rscript ../scripts/PRS.R" --output "PRS.$(date +%Y%m%d).out.txt"
+sbatch --time 2-00:00:00 --partition cpu --job-name="PRS" --ntasks 1 --cpus-per-task 6 --mem 16G --wrap="export OMP_NUM_THREADS=6; module add plink2; module add plink; Rscript ../scripts/PRS.R;" --output "PRS.$(date +%Y%m%d).out.txt"
 
 ```
 

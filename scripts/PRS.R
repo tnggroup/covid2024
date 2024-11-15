@@ -5,7 +5,9 @@
 # Tidy: optional step, tidy summary data
 ## "log2file=TRUE" means the messages will be redirected to a log file
 
-setting_ld_folderPath<-"../data/ld_scores/ukbEUR_HM3"        # LD reference (download from "Resources")
+setting_ld_folderPath<-"/scratch/prj/bioresource/Public/PRS/SBayesRC/ukbEUR_Imputed"        # LD reference (download from "Resources")
+#setting_ld_folderPath<-"../data/ld_scores/ukbEUR_HM3"        # LD reference (download from "Resources")
+
 setting_annot<-"../data/annot_baseline2.2.zip"         # Functional annotation (download from "Resources")
 
 setting_originalBIMFilePath<-"CSSB_Apr_LC12+_fix.bim"
@@ -14,11 +16,12 @@ setting_originalFRQFilePath<-"CSSB_Apr_LC12+_fix.frq"
 setting_originalGWASFilePath<-"CSSB_Apr_LC12+_fix.assoc.logistic"
 setting_refFilePath<-"../data/variant_lists/hc1kgp3.b38.eur.l2.jz2024.gz"
 setting_munged_filePath<-"WTRAIT.gz"
-setting_out_prefix<-"test"   # Output prefix, e.g. "./test"
-setting_ma_filePath<-"test_tidy.ma" # GWAS summary in COJO format (the only input)
-setting_imp_filePath<-"test_imp.ma"
-setting_score_filePath<-"test_sbrc.txt"
-setting_PRS_covar_filePath<-"test.score.txt"
+setting_out_prefix<-"business"   # Output prefix, e.g. "./test"
+setting_ma_filePath<-"business_tidy.ma" # GWAS summary in COJO format (the only input)
+setting_imp_filePath<-"business_imp.ma"
+setting_imp2_filePath<-"business_imp_tidy.ma"
+setting_score_filePath<-"business_sbrc.txt"
+setting_PRS_covar_filePath<-"business.score.txt"
 
 
 
@@ -65,8 +68,12 @@ if(!file.exists(setting_imp_filePath)){
   SBayesRC::impute(mafile=setting_ma_filePath, LDdir=setting_ld_folderPath, output=paste0(setting_out_prefix,'_imp.ma'), log2file=TRUE)
 }
 
+if(!file.exists(setting_imp2_filePath)){
+  SBayesRC::tidy(mafile=setting_imp_filePath, LDdir=setting_ld_folderPath, output=paste0(setting_out_prefix,"_imp_tidy.ma"), log2file=TRUE)
+}
+
 if(!file.exists(setting_score_filePath)){
-  SBayesRC::sbayesrc(mafile=setting_imp_filePath, LDdir=setting_ld_folderPath, outPrefix=paste0(setting_out_prefix,'_sbrc'), annot=setting_annot, log2file=TRUE)
+  SBayesRC::sbayesrc(mafile=setting_imp2_filePath, LDdir=setting_ld_folderPath, outPrefix=paste0(setting_out_prefix,'_sbrc'), annot=setting_annot, log2file=TRUE)
 }
 
 if(!file.exists(setting_PRS_covar_filePath)){
@@ -76,7 +83,7 @@ if(!file.exists(setting_PRS_covar_filePath)){
   # genoCHR="1-22,X" ## means {CHR} expands to 1-22 and X,
   ## if just one genotype file, input genoCHR=""
   # output="test"
-  SBayesRC::prs(weight=setting_score_filePath, genoPrefix='CSSB_Apr_LC12+_fix', out='test', genoCHR='')
+  SBayesRC::prs(weight=setting_score_filePath, genoPrefix='CSSB_Apr_LC12+_fix', out='business', genoCHR='')
 }
 
 originalFAM <- shru::readFile(setting_originalFAMFilePath,nThreads = 6)
@@ -84,16 +91,21 @@ toTest <- shru::readFile(setting_PRS_covar_filePath, nThreads = 6)
 toTest[originalFAM,on=c(FID="V1",IID="V2"),c('SEX','PHENO') := list(i.V5,i.V6)]
 toTest[,PHENO:=PHENO-1]
 toTest<-as.data.frame(toTest)
+toTest$SCORE_SCALED<-scale(toTest$SCORE,center = T)
+quantile(toTest$SCORE_SCALED)
+
 #toTest$PHENO<-as.factor(toTest$PHENO)
 #toTest$SEX<-as.factor(toTest$SEX)
 #testing
-model1 <- glm(PHENO ~ SCORE,family=binomial(link='logit'),data=toTest)
+model1 <- glm(PHENO ~ SCORE_SCALED,family=binomial(link='logit'),data=toTest,maxit=100)
 summary(model1)
-model2 <- glm(PHENO ~ SCORE + SEX,family=binomial(link='logit'),data=toTest)
-summary(model1)
-model3 <- glm(PHENO ~ SCORE, data=toTest)
+model2 <- glm(PHENO ~ SCORE_SCALED + SEX,family=binomial(link='logit'),data=toTest,maxit=100)
+summary(model2)
+model3 <- glm(PHENO ~ SCORE_SCALED, data=toTest,maxit=100)
 summary(model3)
-cor.test(toTest$PHENO, toTest$SCORE)
+cor.test(toTest$PHENO, toTest$SCORE_SCALED)
+
+plot(toTest$SCORE_SCALED,toTest$PHENO)
 
 
 
